@@ -1,1 +1,1 @@
-# mudacomment
+This repository contains two R scripts to accompany a comment article on Muda and Yangxuan (2026). One script is the original simulation script used by  Muda and Yangxuan (2026). The other script contains correct implementation of benchmark stastistics, as well as some additional simulation conditions. 
