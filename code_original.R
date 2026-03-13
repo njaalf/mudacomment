@@ -1,7 +1,3 @@
-# Original Code
-
-# This file was renamed from 251125_COMPLETE_SIMULATION_WITH_GRAPHS.R to code_original.R
-
 library(lavaan)
 library(MASS)
 library(Matrix)
@@ -25,7 +21,7 @@ library(scales)
 
 #####################################################################
 
-output_dir <- "outputs"
+output_dir <- "/mnt/user-data/outputs"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
   cat("Created output directory:", output_dir, "\n")
@@ -276,181 +272,6 @@ compute_all_statistics <- function(model, data) {
   })
 }
 
-compute_all_statistics_njaal <- function(model, data) {#correct rls and sb and add peba4
-  
-  result <- list(
-    values = rep(NA, 11+1),
-    pvalues = rep(NA, 11+1),
-    converged = rep(FALSE, 11+1),
-    df = NA,
-    scaling_factor = NA,
-    fit_indices = list(CFI = NA, TLI = NA, RMSEA = NA, SRMR = NA)
-  )
-  
-  tryCatch({
-    
-    # Fit ML model
-    fit_ml <- lavaan::cfa(model, data = data, estimator = "MLM",#changed to ML 
-                          std.lv = TRUE, auto.fix.first = TRUE,
-                          warn = FALSE)
-    
-    if (!lavInspect(fit_ml, "converged")) return(result)
-    
-    # # Fit MLR model
-    # fit_mlr <- tryCatch({
-    #   lavaan::cfa(model, data = data, estimator = "MLR", 
-    #               std.lv = TRUE, auto.fix.first = TRUE,
-    #               warn = FALSE)
-    # }, error = function(e) NULL)
-    
-    # Extract quantities
-    n <- nrow(data)
-    p <- ncol(data)
-    df <- fitMeasures(fit_ml, "df")
-    result$df <- df
-    
-    TR_stat <- fitMeasures(fit_ml, "chisq")
-    ML_pvalue <- fitMeasures(fit_ml, "pvalue")
-    fmin <- fitMeasures(fit_ml, "fmin")
-    F_ML <- if (!is.na(fmin)) fmin * 2 * n else TR_stat
-    
-    Sigma_hat <- fitted(fit_ml)$cov
-    
-    param_table <- parameterEstimates(fit_ml)
-    m <- length(unique(param_table$lhs[param_table$op == "=~"]))
-    
-    # fit indices
-    result$fit_indices$CFI <- fitMeasures(fit_ml, "cfi")
-    result$fit_indices$TLI <- fitMeasures(fit_ml, "tli")
-    result$fit_indices$RMSEA <- fitMeasures(fit_ml, "rmsea")
-    result$fit_indices$SRMR <- fitMeasures(fit_ml, "srmr")
-    
-    # scaling factor
-    scaling_factor <- compute_scaling_factor_manual(data)
-    result$scaling_factor <- scaling_factor
-    
-    # 1. ML Chi-Square
-    result$values[1] <- TR_stat
-    result$pvalues[1] <- ML_pvalue
-    result$converged[1] <- TRUE
-    
-    # 2. NEW!!! RLS and SB CORRECTED
-    tryCatch({
-      ps <- semTests::pvalues(fit_ml, c("std_rls", "sb_ml", "peba4_rls"))
-         
-        if (sum(!is.na(ps))==3) {
-          result$values[2] <-NA
-          result$pvalues[2] <- ps[1]
-          result$converged[2] <- TRUE
-          result$values[5] <-NA
-          result$pvalues[5] <- ps[2]
-          result$converged[5] <- TRUE
-          
-          result$values[11+1] <-NA
-          result$pvalues[11+1] <- ps[3]
-          result$converged[11+1] <- TRUE
-          
-        }
-      }, error = function(e) {})
-    
-    # 3-4. Foldnes F1 & F2
-    #drop
-    
-    
-    # 6-11. Proposed Statistics
-    y_n <- p / n
-    
-    if (y_n > 0 && y_n < 0.8) {
-      
-      TAU_MULTIPLIER <- 4.2
-      G_MULTIPLIER <- 2.5
-      G1_MULTIPLIER <- 2.5
-      RIDGE_PARAM <- 0.92
-      
-      tau_base <- p * (1 - (y_n - 1)/y_n * log(1 - y_n)) - log(1 - y_n)/2
-      tau <- tau_base * TAU_MULTIPLIER
-      v <- sqrt(-2 * log(1 - y_n) - 2 * y_n)
-      g_base <- -2.393643 + 2.01591 * (m/p) + 1.291412 * (p/n) - 0.278377 * m + 0.036066 * p
-      g <- g_base * G_MULTIPLIER
-      g1_base <- -2.035224 + 1.531018 * (p/n) - 0.237301 * m + 0.029336 * p
-      g1 <- g1_base * G1_MULTIPLIER
-      
-      # 6. T_F
-      tryCatch({
-        T_F <- F_ML - tau
-        if (!is.na(T_F) && is.finite(T_F) && T_F > 0) {
-          result$values[6] <- T_F
-          result$pvalues[6] <- 1 - pchisq(T_F, df)
-          result$converged[6] <- TRUE
-        }
-      }, error = function(e) {})
-      
-      # 7. T_F_C
-      tryCatch({
-        T_F_C <- F_ML - tau - g * v
-        if (!is.na(T_F_C) && is.finite(T_F_C) && T_F_C > 0) {
-          result$values[7] <- T_F_C
-          result$pvalues[7] <- 1 - pchisq(T_F_C, df)
-          result$converged[7] <- TRUE
-        }
-      }, error = function(e) {})
-      
-      # 8. T_CsF
-      if (!is.na(scaling_factor) && scaling_factor > 0) {
-        tryCatch({
-          C_s <- 1 / scaling_factor
-          T_CsF <- C_s * F_ML - tau
-          if (!is.na(T_CsF) && is.finite(T_CsF) && T_CsF > 0) {
-            result$values[8] <- T_CsF
-            result$pvalues[8] <- 1 - pchisq(T_CsF, df)
-            result$converged[8] <- TRUE
-          }
-        }, error = function(e) {})
-      }
-      
-      # 9. T_CsF_C
-      if (!is.na(scaling_factor) && scaling_factor > 0) {
-        tryCatch({
-          C_s <- 1 / scaling_factor
-          T_CsF_C <- C_s * F_ML - tau - g1 * v
-          if (!is.na(T_CsF_C) && is.finite(T_CsF_C) && T_CsF_C > 0) {
-            result$values[9] <- T_CsF_C
-            result$pvalues[9] <- 1 - pchisq(T_CsF_C, df)
-            result$converged[9] <- TRUE
-          }
-        }, error = function(e) {})
-      }
-      
-      # 10. T_F_C_r
-      if (result$converged[7] && !is.na(result$values[7])) {
-        T_F_C_r <- RIDGE_PARAM * result$values[7]
-        if (T_F_C_r > 0) {
-          result$values[10] <- T_F_C_r
-          result$pvalues[10] <- 1 - pchisq(T_F_C_r, df)
-          result$converged[10] <- TRUE
-        }
-      }
-      
-      # 11. T_CsF_C_r
-      if (result$converged[9] && !is.na(result$values[9])) {
-        T_CsF_C_r <- RIDGE_PARAM * result$values[9]
-        if (T_CsF_C_r > 0) {
-          result$values[11] <- T_CsF_C_r
-          result$pvalues[11] <- 1 - pchisq(T_CsF_C_r, df)
-          result$converged[11] <- TRUE
-        }
-      }
-    }
-    
-    return(result)
-    
-  }, error = function(e) {
-    return(result)
-  })
-}
-
-
-
 generate_model_syntax <- function(p, m) {
   if (p < m * 2) return(NULL)
   items_per_factor <- max(2, floor(p / m))
@@ -554,7 +375,7 @@ generate_nonnormal_data <- function(n, p, m, condition) {
 # SIMULATION 
 #####################################################################
 
-run_simulation <- function(use_parallel = TRUE, n_cores = NULL, n_replications = 10) {
+run_simulation <- function(use_parallel = TRUE, n_cores = NULL, n_replications = 1000) {
   
   stat_names <- c("ML Chi-Square", "RLS", "Foldnes F1", "Foldnes F2", 
                   "Satorra-Bentler", "T_F", "T_F_C", "T_CsF", "T_CsF_C", 
@@ -585,7 +406,7 @@ run_simulation <- function(use_parallel = TRUE, n_cores = NULL, n_replications =
   cat("  - 11 methods\n\n")
   
   if (use_parallel) {
-    if (is.null(n_cores)) n_cores <- min(detectCores() - 1)# changed by njaal, 6)
+    if (is.null(n_cores)) n_cores <- min(detectCores() - 1, 6)
     cat("Using", n_cores, "cores\n\n")
     cl <- makeCluster(n_cores)
     registerDoParallel(cl)
@@ -631,7 +452,7 @@ run_simulation <- function(use_parallel = TRUE, n_cores = NULL, n_replications =
       ))
     }
     
-    stats <- compute_all_statistics_njaal(model, data)
+    stats <- compute_all_statistics(model, data)
     
     list(
       stats = data.frame(
