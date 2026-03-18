@@ -1,7 +1,6 @@
 ###########################################################################
 # CORRECTED SIMULATION CODE
 # Comment on Muda and Yangxuan (2026)
-# Foldnes, N. and Grønneberg, S.
 #
 # Key corrections relative to the original code:
 #   1. RLS: uses lavTest(fit_ml, "browne.residual.nt.model")
