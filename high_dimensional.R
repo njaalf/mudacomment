@@ -2,7 +2,7 @@ library(dplyr)
 library(knitr)
 library(tidyr)
 
-res.df <- readRDS("results_study1_finalfinal.rds")
+res.df <- readRDS("highdim.rds")
 unique(res.df$dim/res.df$n) %>% sort
 # Check available conditions
 filter(res.df, dim/n == .125) %>% distinct(dim, n)
