@@ -27,6 +27,7 @@ library(dplyr)
 library(tidyr)
 library(gridExtra)
 library(scales)
+library(covsim)
 
 #####################################################################
 # GLOBAL CONSTANTS
