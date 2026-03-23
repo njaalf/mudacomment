@@ -677,11 +677,7 @@ plresults <- run_simulation_plsim(n_replications = 5)
 pl_rr <- plresults %>%
   group_by(Condition, Statistic) %>%
   summarise(rr = mean(Pvalue < 0.05), .groups = "drop") %>%
-  pivot_wider(names_from = Statistic, values_from = rr) %>%
-  select(Condition, all_of(stat_names)) %>%
-  mutate(Condition = recode(Condition,
-                            "PL1" = "PL s2,k7",
-                            "PL2" = "PL s3,k21"))
+  pivot_wider(names_from = Statistic, values_from = rr) 
 
 # VITA run (requires calibrated object from calibration block above)
 res <- run_simulation_vita(use_parallel = FALSE, n_replications = 5)
