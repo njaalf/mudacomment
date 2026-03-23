@@ -14,6 +14,9 @@
 #      theoretical moments instead of sample-based scale()
 ###########################################################################
 
+n_replications <- 5 #NB: fixed to 5 for testing. Change to 5000 to replicate Foldnes & Grønneberg (2026)
+
+
 library(lavaan)
 library(MASS)
 library(Matrix)
@@ -377,7 +380,7 @@ generate_nonnormal_data <- function(n, p, m, condition) {
 #####################################################################
 
 run_simulation <- function(use_parallel = TRUE, dist_conditions,
-                           n_cores = NULL, n_replications = 5) {
+                           n_cores = NULL, n_replications = n_replications) {
   start_time <- Sys.time()
 
   sim_conditions <- data.frame(
@@ -672,7 +675,7 @@ if (exists("cl")) try(stopCluster(cl), silent = TRUE)
 gc()
 
 # PL conditions (calibration run internally per call)
-plresults <- run_simulation_plsim(n_replications = 5)
+plresults <- run_simulation_plsim(n_replications = n_replications)
 
 pl_rr <- plresults %>%
   group_by(Condition, Statistic) %>%
