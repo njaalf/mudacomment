@@ -28,7 +28,7 @@ library(tidyr)
 library(gridExtra)
 library(scales)
 library(covsim)
-
+calibrated <- readRDS("calibratedvita.rds")
 #####################################################################
 # GLOBAL CONSTANTS
 #####################################################################
