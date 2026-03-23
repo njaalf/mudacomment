@@ -647,7 +647,7 @@ run_simulation_vita <- function(use_parallel = FALSE, n_cores = NULL,
     data    <- rvinecopulib::rvine(sim_row$n, cvita) %*% post %>% as.data.frame()
     colnames(data) <- paste0("x", 1:sim_row$p)
     stats   <- compute_all_statistics(model, data)
-    data.frame(pvals = stats$pvalues, replication = replication, sim_row = sim_row)
+    data.frame(pvals = stats$pvalues, replication = replication, sim_row = sim_row, row.names=NULL)
   }
 
   results_list <- list()
